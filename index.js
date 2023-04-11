@@ -29,19 +29,13 @@ class StateManagement {
     return '.tasks-container';
   }
   static init(element) {
-    const {
-      projects
-    } = JSON.parse(localStorage.getItem(StateManagement.keyProjects));
-    const objectSubject = new rxjs__WEBPACK_IMPORTED_MODULE_2__.BehaviorSubject(projects);
+    const storage = JSON.parse(localStorage.getItem(StateManagement.keyProjects));
+    const objectSubject = new rxjs__WEBPACK_IMPORTED_MODULE_2__.BehaviorSubject(storage);
     const objectObserver = {
       next: updatedObject => {
         this.statsWidget = new _StatsWidget__WEBPACK_IMPORTED_MODULE_0__["default"](element.querySelector(StateManagement.selectorStatsContainer), updatedObject);
-        this.tasksWidget = new _TasksWidget__WEBPACK_IMPORTED_MODULE_1__["default"](element.querySelector(StateManagement.selectorTasksContainer), updatedObject);
-        this.tasksWidget.bindToDOM();
         this.statsWidget.bindToDOM();
-      },
-      error: err => console.error('Произошла ошибка:', err),
-      complete: () => console.log('Завершено')
+      }
     };
     objectSubject.subscribe(objectObserver);
 
@@ -57,12 +51,11 @@ class StateManagement {
     const deepProxyHandler = {
       set(target, property, value) {
         target[property] = value;
-        console.log(this);
-        objectSubject.next(projects);
+        objectSubject.next(storage);
         return true;
       }
     };
-    const objectProxy = createDeepProxy(projects, deepProxyHandler);
+    const objectProxy = createDeepProxy(storage, deepProxyHandler);
     this.statsWidget = new _StatsWidget__WEBPACK_IMPORTED_MODULE_0__["default"](element.querySelector(StateManagement.selectorStatsContainer), objectProxy);
     this.tasksWidget = new _TasksWidget__WEBPACK_IMPORTED_MODULE_1__["default"](element.querySelector(StateManagement.selectorTasksContainer), objectProxy);
     this.tasksWidget.bindToDOM();
@@ -88,35 +81,41 @@ class StatsWidget {
 			<table class="table">
 				<thead>
 				<tr>
-					<td>Project</td>
-					<td>Open</td>
+					<td>Проекты</td>
+					<td>Открытые</td>
 				</tr>
 				</thead>
 				<tbody></tbody>
 			</table>
 		`;
   }
-  static markupRow(name, countTasks) {
+  static markupRow(project) {
     return `
-			<td>${name}</td>
-			<td><h6><span class="badge rounded-pill bg-dark">${countTasks}</span></h6></td>
+			<tr>
+				<td>${project.name}</td>
+				<td><h6><span class="badge rounded-pill bg-dark">
+					${project.tasks.filter(task => !task.done).length}
+				</span></h6></td>				
+			</tr>
 		`;
   }
   static get selectorTBody() {
     return 'tbody';
   }
-  constructor(element, projects) {
+  constructor(element, storage) {
     this.element = element;
-    this.projects = projects;
+    this.storage = storage;
   }
   bindToDOM() {
     this.element.innerHTML = StatsWidget.markup;
     this.tbody = this.element.querySelector(StatsWidget.selectorTBody);
-    this.projects.forEach(project => {
-      const rowProject = document.createElement('tr');
-      rowProject.innerHTML = StatsWidget.markupRow(project.name, project.tasks.length);
-      this.tbody.append(rowProject);
-    });
+    this.tbody.innerHTML = this.markupRows;
+  }
+  get markupRows() {
+    return this.storage.projects.reduce((prev, project) => {
+      prev += StatsWidget.markupRow(project);
+      return prev;
+    }, '');
   }
 }
 
@@ -133,46 +132,93 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": function() { return /* binding */ TasksWidget; }
 /* harmony export */ });
 class TasksWidget {
-  static markup(tasks) {
-    return tasks.reduce((prev, curr) => {
-      prev += `
-				<div class="task">
-					<input id="task-${curr.id}" ${curr.done ? 'checked' : ''}
-						   type="checkbox">
-					<label for="task-${curr.id}">${curr.name}</label>
-				</div>
-			`;
-      return prev;
-    }, '');
+  static get markup() {
+    return `
+			<table class="table">
+				<thead></thead>
+				<tbody></tbody>
+			</table>
+		`;
   }
-  constructor(element, projects) {
+  static get selectorTableHead() {
+    return 'thead';
+  }
+  static get selectorTableBody() {
+    return 'tbody';
+  }
+  constructor(element, storage) {
     this.element = element;
-    this.projects = projects;
-    this.containersTasks = [];
+    this.storage = storage;
+    this.rows = [];
   }
   bindToDOM() {
+    this.element.innerHTML = TasksWidget.markup;
+    this.thead = this.element.querySelector(TasksWidget.selectorTableHead);
+    this.tbody = this.element.querySelector(TasksWidget.selectorTableBody);
+    const select = this.createSelect();
+    this.thead.append(select);
+    this.storage.projects.forEach((project, index) => {
+      const isSelect = !index;
+      select.append(this.createOption(project, isSelect));
+      project.tasks.forEach(task => {
+        const row = this.createRow(project.id, task, isSelect);
+        this.rows.push(row);
+        this.tbody.append(row);
+      });
+    });
+  }
+  createSelect() {
     const select = document.createElement('select');
     select.classList.add('form-select');
     select.addEventListener('change', () => {
-      this.containersTasks.forEach(container => {
-        container.classList.add('d-none');
-        if (select.value === container.id) container.classList.remove('d-none');
+      this.rows.forEach(row => {
+        row.classList.add('d-none');
+        if (select.value === row.id) row.classList.remove('d-none');
       });
     });
-    this.element.append(select);
-    this.projects.forEach((project, index) => {
-      const option = document.createElement('option');
-      if (!index) option.selected = true;
-      option.value = project.id;
-      option.text = project.name;
-      select.append(option);
-      const containerTasks = document.createElement('div');
-      this.containersTasks.push(containerTasks);
-      containerTasks.id = project.id;
-      if (index) containerTasks.classList.add('d-none');
-      containerTasks.innerHTML = TasksWidget.markup(project.tasks);
-      this.element.append(containerTasks);
+    return select;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  createOption(project, isSelect) {
+    const option = document.createElement('option');
+    option.value = project.id;
+    option.text = project.name;
+    option.selected = isSelect;
+    return option;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  createCheckbox(id, task) {
+    const checkbox = document.createElement('input');
+    checkbox.id = id;
+    checkbox.type = 'checkbox';
+    checkbox.checked = task.done;
+    checkbox.addEventListener('change', () => {
+      task.done = checkbox.checked;
     });
+    return checkbox;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  createLabel(id, task) {
+    const label = document.createElement('label');
+    label.textContent = task.name;
+    label.htmlFor = id;
+    return label;
+  }
+  createRow(projectId, task, isActive) {
+    const row = document.createElement('tr');
+    const columnCheckbox = document.createElement('td');
+    const columnLabel = document.createElement('td');
+    const id = `task-${task.id}`;
+    if (!isActive) row.classList.add('d-none');
+    row.id = projectId;
+    columnCheckbox.append(this.createCheckbox(id, task));
+    columnLabel.append(this.createLabel(id, task));
+    row.append(columnCheckbox);
+    row.append(columnLabel);
+    return row;
   }
 }
 
@@ -187,6 +233,90 @@ class TasksWidget {
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _StateManagement__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./StateManagement */ "./src/js/StateManagement.js");
 
+const projects = {
+  projects: [{
+    id: 1,
+    name: 'Website',
+    tasks: [{
+      id: 1,
+      name: 'Responsive Design',
+      done: true
+    }, {
+      id: 2,
+      name: 'SEO Optimization',
+      done: false
+    }, {
+      id: 3,
+      name: 'Content Management',
+      done: false
+    }, {
+      id: 4,
+      name: 'Performance Optimization',
+      done: true
+    }]
+  }, {
+    id: 2,
+    name: 'Android App',
+    tasks: [{
+      id: 5,
+      name: 'User Authentication',
+      done: true
+    }, {
+      id: 6,
+      name: 'In-app Purchases',
+      done: false
+    }, {
+      id: 7,
+      name: 'Location Services',
+      done: false
+    }, {
+      id: 8,
+      name: 'Offline Capability',
+      done: true
+    }]
+  }, {
+    id: 3,
+    name: 'API',
+    tasks: [{
+      id: 9,
+      name: 'RESTful API',
+      done: true
+    }, {
+      id: 10,
+      name: 'API Documentation',
+      done: false
+    }, {
+      id: 11,
+      name: 'API Security',
+      done: false
+    }, {
+      id: 12,
+      name: 'Rate Limiting',
+      done: true
+    }]
+  }, {
+    id: 4,
+    name: 'iOS App',
+    tasks: [{
+      id: 13,
+      name: 'Push Notifications',
+      done: true
+    }, {
+      id: 14,
+      name: 'Apple Pay Support',
+      done: false
+    }, {
+      id: 15,
+      name: '3D Touch Support',
+      done: false
+    }, {
+      id: 16,
+      name: 'Dark Mode',
+      done: true
+    }]
+  }]
+};
+localStorage.setItem(_StateManagement__WEBPACK_IMPORTED_MODULE_0__["default"].keyProjects, JSON.stringify(projects));
 const app = document.querySelector('#app');
 _StateManagement__WEBPACK_IMPORTED_MODULE_0__["default"].init(app);
 
