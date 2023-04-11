@@ -52,6 +52,7 @@ export default class TasksWidget {
 		return select;
 	}
 
+	// eslint-disable-next-line class-methods-use-this
 	createOption(project, isSelect) {
 		const option = document.createElement('option');
 		option.value = project.id;
@@ -60,6 +61,7 @@ export default class TasksWidget {
 		return option;
 	}
 
+	// eslint-disable-next-line class-methods-use-this
 	createCheckbox(id, task) {
 		const checkbox = document.createElement('input');
 		checkbox.id = id;
@@ -71,6 +73,7 @@ export default class TasksWidget {
 		return checkbox;
 	}
 
+	// eslint-disable-next-line class-methods-use-this
 	createLabel(id, task) {
 		const label = document.createElement('label');
 		label.textContent = task.name;
