@@ -1,40 +1,33 @@
+import { BehaviorSubject } from 'rxjs';
 import StatsWidget from './StatsWidget';
 import TasksWidget from './TasksWidget';
-import { BehaviorSubject } from 'rxjs';
 
 export default class StateManagement {
 	static get keyProjects() {
-		return 'projects'
+		return 'projects';
 	}
 
 	static get selectorStatsContainer() {
-		return '.stats-container'
+		return '.stats-container';
 	}
 
 	static get selectorTasksContainer() {
-		return '.tasks-container'
+		return '.tasks-container';
 	}
 
 	static init(element) {
-		const projects = JSON.parse(localStorage.getItem(StateManagement.keyProjects)).projects
+		const storage = JSON.parse(localStorage.getItem(StateManagement.keyProjects));
 
-		const objectSubject = new BehaviorSubject(projects);
+		const objectSubject = new BehaviorSubject(storage);
 
 		const objectObserver = {
 			next: (updatedObject) => {
 				this.statsWidget = new StatsWidget(
 					element.querySelector(StateManagement.selectorStatsContainer),
-					updatedObject
+					updatedObject,
 				);
-				this.tasksWidget = new TasksWidget(
-					element.querySelector(StateManagement.selectorTasksContainer),
-					updatedObject
-				);
-				this.tasksWidget.bindToDOM()
-				this.statsWidget.bindToDOM()
+				this.statsWidget.bindToDOM();
 			},
-			error: (err) => console.error('Произошла ошибка:', err),
-			complete: () => console.log('Завершено'),
 		};
 
 		objectSubject.subscribe(objectObserver);
@@ -52,22 +45,21 @@ export default class StateManagement {
 		const deepProxyHandler = {
 			set(target, property, value) {
 				target[property] = value;
-				console.log(this)
-				objectSubject.next(projects);
+				objectSubject.next(storage);
 				return true;
 			},
 		};
 
-		const objectProxy = createDeepProxy(projects, deepProxyHandler);
+		const objectProxy = createDeepProxy(storage, deepProxyHandler);
 		this.statsWidget = new StatsWidget(
 			element.querySelector(StateManagement.selectorStatsContainer),
-			objectProxy
+			objectProxy,
 		);
 		this.tasksWidget = new TasksWidget(
 			element.querySelector(StateManagement.selectorTasksContainer),
-			objectProxy
+			objectProxy,
 		);
-		this.tasksWidget.bindToDOM()
-		this.statsWidget.bindToDOM()
+		this.tasksWidget.bindToDOM();
+		this.statsWidget.bindToDOM();
 	}
 }

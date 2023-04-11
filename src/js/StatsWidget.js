@@ -4,8 +4,8 @@ export default class StatsWidget {
 			<table class="table">
 				<thead>
 				<tr>
-					<td>Project</td>
-					<td>Open</td>
+					<td>Проекты</td>
+					<td>Открытые</td>
 				</tr>
 				</thead>
 				<tbody></tbody>
@@ -13,31 +13,38 @@ export default class StatsWidget {
 		`;
 	}
 
-	static markupRow(name, countTasks) {
+	static markupRow(project) {
 		return `
-			<td>${name}</td>
-			<td><h6><span class="badge rounded-pill bg-dark">${countTasks}</span></h6></td>
+			<tr>
+				<td>${project.name}</td>
+				<td><h6><span class="badge rounded-pill bg-dark">
+					${project.tasks.filter((task) => !task.done).length}
+				</span></h6></td>				
+			</tr>
 		`;
 	}
 
 	static get selectorTBody() {
-		return 'tbody'
+		return 'tbody';
 	}
 
-	constructor(element, projects) {
+	constructor(element, storage) {
 		this.element = element;
-		this.projects = projects;
+		this.storage = storage;
 	}
 
 	bindToDOM() {
 		this.element.innerHTML = StatsWidget.markup;
 		this.tbody = this.element.querySelector(
-			StatsWidget.selectorTBody
-		)
-		this.projects.forEach((project) => {
-			const rowProject = document.createElement('tr')
-			rowProject.innerHTML = StatsWidget.markupRow(project.name, project.tasks.length)
-			this.tbody.append(rowProject)
-		})
+			StatsWidget.selectorTBody,
+		);
+		this.tbody.innerHTML = this.markupRows;
+	}
+
+	get markupRows() {
+		return this.storage.projects.reduce((prev, project) => {
+			prev += StatsWidget.markupRow(project);
+			return prev;
+		}, '');
 	}
 }
